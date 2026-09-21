@@ -70,6 +70,20 @@
       const exercises=d.exercises.map(x=>{const e=exercise(x);if(ids.has(e.id))throw Error('Doppelte Übung in einem Trainingstag.');ids.add(e.id);return e;});
       return {...d,id,name:text(d.name||'Training'),exercises:arrange(exercises)};
     });
+    if(p.blocks!==undefined){
+      if(!Array.isArray(p.blocks)) throw Error('Ungültige Trainingsblöcke.');
+      const ids=new Set();
+      p.blocks=p.blocks.map(b=>{
+        if(!b||!b.id||ids.has(b.id)||!Array.isArray(b.days)||!b.days.length||!Array.isArray(b.slots)||!/^\d{4}-\d{2}-\d{2}$/.test(b.startDate)) throw Error('Ungültiger Trainingsblock.');
+        ids.add(b.id);
+        const days=b.days.map(d=>({...d,exercises:arrange(d.exercises.map(exercise))}));
+        const slots=new Set();
+        for(const slot of b.slots){if(!slot.id||slots.has(slot.id)||!days.some(d=>d.id===slot.dayId)||![1,2,3].includes(slot.round)||slot.plannedDate&&!/^\d{4}-\d{2}-\d{2}$/.test(slot.plannedDate))throw Error('Ungültige Blockeinheit.');slots.add(slot.id);}
+        return {...b,days};
+      });
+      if(p.blocks.filter(b=>!b.closedAt).length>1)throw Error('Mehrere aktive Trainingsblöcke.');
+    }
+    if(p.nextBlock){const draft=normalize({trainingDays:[],history:[],blocks:[p.nextBlock]});p.nextBlock=draft.blocks[0];if(p.nextBlock.closedAt)throw Error('Ungültige Blockvorbereitung.');}
     const find=id=>p.trainingDays.flatMap(d=>d.exercises).find(x=>x.id===id);
     function session(s, active=false) {
       const d=p.trainingDays.find(d=>d.id===s.dayId);
@@ -151,5 +165,21 @@
     db.appliedUpdates=[...(Array.isArray(db.appliedUpdates)?db.appliedUpdates:[]),update];
     return db;
   }
-  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate};
+  function newBlock(days, name, startDate) {
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(startDate)||Number.isNaN(new Date(startDate+'T12:00:00').getTime())) throw Error('Bitte ein gültiges Startdatum wählen.');
+    if(!days.length || days.some(d=>!d.exercises.length)) throw Error('Bitte Trainingstage mit Übungen auswählen.');
+    return {id:uid('block'),name:name||'Trainingsblock',startDate,days:clone(days),slots:Array.from({length:3},(_,round)=>days.map(d=>({id:uid('slot'),dayId:d.id,round:round+1,plannedDate:''}))).flat(),closedAt:null};
+  }
+  function blockProgress(db,b) {
+    const completed=new Map();
+    for(const h of db.history) if(h.blockId===b.id && b.slots.some(s=>s.id===h.slotId)) completed.set(h.slotId,h);
+    return {completed,next:b.slots.find(s=>!completed.has(s.id)),total:b.slots.length};
+  }
+  function startSlot(db,b,slotId) {
+    if(db.activeSession) throw Error('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');
+    const slot=b.slots.find(s=>s.id===slotId);
+    if(b.closedAt||!slot||blockProgress(db,b).completed.has(slotId)) throw Error('Diese Einheit ist nicht offen.');
+    return {...start(db,b.days.find(d=>d.id===slot.dayId)),blockId:b.id,slotId:slot.id};
+  }
+  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,blockProgress,startSlot};
 });

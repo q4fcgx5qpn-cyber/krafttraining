@@ -1,10 +1,10 @@
 /* Offline app shell. All paths are relative to this worker's directory,
    including when GitHub Pages serves the app below /repository-name/. */
 'use strict';
-const VERSION='0.4.2';
+const VERSION='0.5.0';
 const BASE=new URL('./',self.location.href);
 const PREFIX='krafttraining-shell-'+encodeURIComponent(BASE.pathname)+'-';
-const CACHE=PREFIX+VERSION+'-r2';
+const CACHE=PREFIX+VERSION+'-r3';
 const PATHS=[
   'index.html','styles.css?v='+VERSION,'seed.js?v='+VERSION,
   'core.js?v='+VERSION,'app.js?v='+VERSION,'pwa.js?v='+VERSION,

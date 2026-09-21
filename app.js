@@ -36,7 +36,7 @@ function back(href,label='Zurück'){return `<a class="back" href="#${href}">← 
 function resumeCard(){const s=db.activeSession;return s?`<section class="resume"><div><span class="eyebrow">DEIN TRAINING LÄUFT</span><h2>${esc(s.dayName)}</h2><span>${done(s)} von ${count(s.exercises)} Sätzen erledigt</span></div><a href="#session" class="btn primary">Fortsetzen →</a></section>`:'';}
 function home(){
   const last=[...db.history].sort((a,b)=>new Date(b.finishedAt)-new Date(a.finishedAt))[0];
-  return head('BEREIT FÜR DEN NÄCHSTEN SATZ?','Dein Training','Wähle einen Tag. Schau dir den Plan an. Leg los.')+resumeCard()+
+  return head('BEREIT FÜR DEN NÄCHSTEN SATZ?','Dein Training','Wähle einen Tag. Schau dir den Plan an. Leg los.')+resumeCard()+planningCard()+
   `<div class="section-title"><h2>Dein Trainingsplan</h2><a class="text-link" href="#edit/new">+ Trainingstag</a></div><div class="day-grid">`+
   db.trainingDays.map((d,i)=>`<a href="#day/${encodeURIComponent(d.id)}" class="card day-card"><div class="day-top"><span class="eyebrow">TRAINING ${String(i+1).padStart(2,'0')}</span><span class="arrow">↗</span></div><h2>${esc(d.name)}</h2><p class="muted">${d.exercises.length} Übungen <span class="dot">·</span> ${count(d.exercises)} Sätze</p><div class="day-foot"><div class="mini-tags">${K.groups(d.exercises).filter(g=>g.sup).map(g=>`<span class="pill">${g.letter} · Supersatz</span>`).join('')||'<span class="pill">Einzelübungen</span>'}</div><span class="text-link">Ansehen →</span></div></a>`).join('')+`</div>`+
   (!db.trainingDays.length?empty('Dein Plan beginnt hier','Lege deinen ersten Trainingstag an.',`<a href="#edit/new" class="btn primary">Trainingstag anlegen</a>`):'')+
@@ -80,6 +80,7 @@ function render(){
   const r=route();if(r.page!=='edit')editor=null;
   let html;
   if(r.page==='day'){const d=db.trainingDays.find(d=>d.id===r.id);html=d?overview(d):home();}
+  else if(r.page==='calendar')html=calendar();
   else if(r.page==='session')html=session();
   else if(r.page==='history')html=history(r.id);
   else if(r.page==='manage')html=manage();
@@ -88,9 +89,9 @@ function render(){
     html=editPage(r.id);
   }else html=home();
   $('#app').innerHTML=html;
-  document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.4.2';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.5.0';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -117,7 +118,7 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportData(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='krafttraining-v0.4.2-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exportiert.');}
+function exportData(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='krafttraining-v0.5.0-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exportiert.');}
 async function importFile(file){
   if(!file)return;
   try{
@@ -161,7 +162,7 @@ document.addEventListener('click',e=>{
   const s=db.activeSession,x=s?.exercises[s.index];
   if(a==='close-dialog')return closeDialog();
   if(a==='editday')return go('edit/'+encodeURIComponent(id));
-  if(a==='start'){if(!s){const d=db.trainingDays.find(d=>d.id===id);if(!d?.exercises.length)return;db.activeSession=K.start(db,d);save();}return go('session');}
+  if(a==='start'){if(!s){const active=(db.blocks||[]).find(b=>!b.closedAt);if(active){const slot=K.blockProgress(db,active).next;if(slot?.dayId===id){db.activeSession=K.startSlot(db,active,slot.id);save();return go('session');}if(!confirm('Als zusätzliches Training starten? Der Fortschritt im Block bleibt unverändert. Für eine vorgezogene Blockeinheit wähle sie unter Planung.'))return;}const d=db.trainingDays.find(d=>d.id===id);if(!d?.exercises.length)return;db.activeSession=K.start(db,d);save();}return go('session');}
   if(a==='prev'||a==='next'||a==='jump'){if(!s)return;s.index=a==='jump'?index:s.index+(a==='prev'?-1:1);s.index=Math.max(0,Math.min(s.index,s.exercises.length-1));save();render();return;}
   if(a==='toggle'){
     const v=x.values[index];if(!v.done&&(!validateNumber(v.reps,x.unit!=='seconds')||(+v.reps.replace(',','.')<=0)||(v.weight!==''&&!validateNumber(v.weight))))return toast('Bitte gültige Werte eingeben: Gewicht ab 0 und Wiederholungen / Zeit größer als 0.');
@@ -202,3 +203,42 @@ document.addEventListener('click',e=>{
 });
 $('#dialog').addEventListener('click',e=>{if(e.target===$('#dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeDialog();}});
 warning(loadError);if(!writeBlocked)save();render();setInterval(updateTimer,1000);
+
+function localDay(value=new Date()){const d=new Date(value);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function activeBlock(){return (db.blocks||[]).find(b=>!b.closedAt);}
+function planningCard(){
+ const b=activeBlock();if(!b)return `<section class="card planning-card"><div class="eyebrow">FLEXIBEL PLANEN</div><h2>Dein nächster Trainingsblock</h2><p class="muted">Drei Durchläufe, dein Tempo. Starte mit deinen aktuellen Trainingstagen.</p>${button('create-block','Block anlegen','primary')} <a href="#calendar" class="btn secondary">Kalender ansehen</a></section>`;
+ const p=K.blockProgress(db,b),s=p.next,d=b.days.find(d=>d.id===s?.dayId);const monday=new Date();monday.setHours(0,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);const end=new Date(monday);end.setDate(end.getDate()+7);const weekly=db.history.filter(h=>new Date(h.finishedAt||h.date)>=monday&&new Date(h.finishedAt||h.date)<end).length;
+ return `<section class="card planning-card"><div class="eyebrow">${esc(b.name)} · seit ${date(b.startDate+'T12:00:00')}</div><h2>${p.completed.size} von ${p.total} Einheiten erledigt</h2><p class="muted">Diese Woche: ${weekly} von 4 Einheiten</p>${(Date.now()-new Date(b.startDate+'T00:00:00').getTime()>=21*86400000||!s)?'<p class="muted">Zeit für einen Blockwechsel? Du kannst den Block abschließen oder weitertrainieren.</p>':''}<p>${d?'Als Nächstes: <strong>'+esc(d.name)+'</strong> · Durchlauf '+s.round:'Alle Einheiten erledigt. Du kannst den nächsten Block beginnen.'}</p>${s?button('block-slot','Nächste Einheit ansehen →','primary',`data-id="${esc(b.id)}" data-slot="${esc(s.id)}"`):''} <a href="#calendar" class="btn secondary">Planung öffnen →</a></section>`;
+}
+function calendar(){
+ const b=activeBlock();const now=new Date();now.setHours(12,0,0,0);now.setDate(now.getDate()-((now.getDay()+6)%7)+(window.planWeekOffset||0)*7);
+ const week=Array.from({length:7},(_,i)=>{const d=new Date(now);d.setDate(d.getDate()+i);return localDay(d);});
+ const weekCount=db.history.filter(h=>week.includes(localDay(h.finishedAt||h.date))).length;
+ const blockView=block=>{const p=K.blockProgress(db,block);return `<section class="card planning-card"><div class="section-title"><div><span class="eyebrow">${block.closedAt?'ABGESCHLOSSENER BLOCK':'AKTUELLER BLOCK'}</span><h2>${esc(block.name)}</h2></div><span>${p.completed.size} / ${p.total}</span></div><p class="muted">Seit ${date(block.startDate+'T12:00:00',true)} · Ziel: drei Wochen, Wechsel nach deiner Bestätigung</p><div class="block-grid" style="--days:${block.days.length}"><span></span>${block.days.map(d=>`<strong>${esc(d.name.replace(/^[^–]*–\s*/,''))}</strong>`).join('')}${[1,2,3].map(round=>`<strong>Runde ${round}</strong>${block.slots.filter(s=>s.round===round).map(s=>{const h=p.completed.get(s.id),d=block.days.find(d=>d.id===s.dayId);return h?`<a class="block-cell complete" href="#history/${encodeURIComponent(h.id)}" aria-label="${esc(d.name)} Durchlauf ${round}, erledigt">✓<small>${date(h.finishedAt)}</small></a>`:button('block-slot',`${s.id===p.next?.id&&!block.closedAt?'Als Nächstes':'○'}<small>${s.plannedDate?date(s.plannedDate+'T12:00:00'):block.closedAt?'Nicht absolviert':'Offen'}</small>`,'block-cell '+(s.id===p.next?.id&&!block.closedAt?'next':''),`data-id="${esc(block.id)}" data-slot="${esc(s.id)}" aria-label="${esc(d.name)} Durchlauf ${round}" ${block.closedAt?'disabled':''}`);}).join('')}`).join('')}</div>${!block.closedAt?`<p class="footnote">Tippe eine offene Einheit an, um sie anzusehen, vorzuziehen oder auf einen Tag zu legen.</p>${button('create-block','Nächsten Block vorbereiten','secondary')} ${button('close-block','Block abschließen','secondary')}`:''}</section>`;};
+ return head('DEIN RHYTHMUS','Planung','Vier Einheiten pro Woche als Ziel. Die Reihenfolge läuft flexibel weiter.')+resumeCard()+`<section class="card planning-card"><div class="section-title">${button('week-prev','←','secondary','aria-label="Vorherige Woche"')}<div><h2>${date(week[0]+'T12:00:00')} – ${date(week[6]+'T12:00:00')}</h2><span>${weekCount} von 4 geplanten Einheiten</span></div>${button('week-next','→','secondary','aria-label="Nächste Woche"')}</div>${button('week-today','Diese Woche','ghost')}<div class="calendar-week">${week.map(day=>`<section class="calendar-day ${day===localDay()?'today':''}"><strong>${new Date(day+'T12:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'numeric',month:'numeric'})}${day===localDay()?' · Heute':''}</strong>${db.history.filter(h=>localDay(h.finishedAt||h.date)===day).map(h=>`<a class="calendar-entry complete" href="#history/${encodeURIComponent(h.id)}">✓ ${esc(h.dayName)}</a>`).join('')}${b?b.slots.filter(s=>s.plannedDate===day&&!K.blockProgress(db,b).completed.has(s.id)).map(s=>button('block-slot',esc(b.days.find(d=>d.id===s.dayId).name),'calendar-entry',`data-id="${esc(b.id)}" data-slot="${esc(s.id)}"`)).join(''):''}</section>`).join('')}</div></section>`+(b?blockView(b):planningCard())+(db.nextBlock?`<section class="card planning-card"><h2>Vorbereitet: ${esc(db.nextBlock.name)}</h2><p>${db.nextBlock.days.length} Trainingstage · drei Durchläufe</p>${button('activate-block','Diesen Block starten','primary')} ${button('create-block','Vorbereitung bearbeiten','secondary')}</section>`:'')+(db.blocks||[]).filter(b=>b.closedAt).slice().reverse().map(blockView).join('');
+}
+function blockForm(){
+ const draft=db.nextBlock;
+ openDialog(draft?'Nächsten Block bearbeiten':'Trainingsblock vorbereiten',`<form id="blockForm"><label>Blockname<input name="name" required maxlength="80" value="${esc(draft?.name||'Block '+((db.blocks||[]).length+1))}"></label><label>Beginn<input name="startDate" type="date" required value="${draft?.startDate||localDay()}"></label><p class="muted">Wähle die Trainingstage in der angezeigten Reihenfolge. Für neue Übungen oder Satzvorgaben zuerst unter Verwalten die Pläne bearbeiten. Der laufende Block behält seine bisherigen Vorgaben.</p>${db.trainingDays.map(d=>`<label class="group-choice"><input type="checkbox" name="day" value="${esc(d.id)}" ${!draft||draft.days.some(x=>x.id===d.id)?'checked':''}><span>${esc(d.name)}</span></label>`).join('')}<p class="footnote">Beim Speichern werden die aktuellen Pläne kopiert. Bisherige Trainings bleiben in der Historie und im Kalender.</p><button class="btn primary full" type="submit">${activeBlock()?'Nächsten Block speichern':'Block starten'}</button></form>`);
+}
+function slotDialog(block,slot){const d=block.days.find(d=>d.id===slot.dayId);openDialog(d.name,`<p>Durchlauf ${slot.round} · ${d.exercises.length} Übungen</p><div class="slot-exercises">${K.groups(d.exercises).map(g=>`<p>${g.sup?'<strong>Supersatz '+g.letter+'</strong><br>':''}${g.items.map(x=>`${esc(x.label)} ${esc(x.name)} · ${esc(x.setsRange||x.sets)} × ${esc(x.reps)}`).join('<br>')}</p>`).join('')}</div><form id="slotForm" data-block="${esc(block.id)}" data-slot="${esc(slot.id)}"><label>Optionaler Termin<input type="date" name="plannedDate" value="${esc(slot.plannedDate)}"></label><p class="footnote">Zum Entfernen den Termin leeren. Ein Termin ändert nicht die Trainingsreihenfolge.</p><button type="submit" class="btn secondary">Termin speichern</button></form><hr>${button('start-slot',db.activeSession?'Laufendes Training fortsetzen':'Diese Einheit starten','primary full',`data-id="${esc(block.id)}" data-slot="${esc(slot.id)}"`)}`);}
+document.addEventListener('submit',e=>{
+ if(e.target.id==='blockForm'){e.preventDefault();if(!activeBlock()&&db.activeSession)return toast('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');const f=new FormData(e.target),ids=f.getAll('day');try{const b=K.newBlock(db.trainingDays.filter(d=>ids.includes(d.id)),String(f.get('name')).trim(),String(f.get('startDate')));if(activeBlock())db.nextBlock=b;else{(db.blocks||=[]).push(b);delete db.nextBlock;}save();closeDialog();go('calendar');render();}catch(err){toast(err.message);}}
+ if(e.target.id==='slotForm'){e.preventDefault();const b=db.blocks.find(b=>b.id===e.target.dataset.block),s=b.slots.find(s=>s.id===e.target.dataset.slot);s.plannedDate=String(new FormData(e.target).get('plannedDate'));save();closeDialog();render();}
+});
+document.addEventListener('click',e=>{
+ const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const a=el.dataset.a;
+ if(a==='create-block')return blockForm();
+ if(a==='week-prev'||a==='week-next'||a==='week-today'){window.planWeekOffset=a==='week-today'?0:(window.planWeekOffset||0)+(a==='week-prev'?-1:1);render();}
+ if(a==='block-slot'){const b=db.blocks.find(b=>b.id===el.dataset.id);slotDialog(b,b.slots.find(s=>s.id===el.dataset.slot));}
+ if(a==='start-slot'){if(db.activeSession){closeDialog();return go('session');}try{db.activeSession=K.startSlot(db,db.blocks.find(b=>b.id===el.dataset.id),el.dataset.slot);save();closeDialog();go('session');}catch(err){toast(err.message);}}
+ if(a==='close-block'||a==='activate-block'){
+   if(db.activeSession)return toast('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');
+   const b=activeBlock(),p=b&&K.blockProgress(db,b);
+   if(!confirm(`${b?`${p.total-p.completed.size} Einheiten bleiben nicht absolviert. `:''}${a==='activate-block'?'Vorbereiteten Block jetzt starten?':'Block abschließen? Die bisherigen Pläne bleiben erhalten.'}`))return;
+   if(b)b.closedAt=new Date().toISOString();
+   if(a==='activate-block'&&db.nextBlock){db.nextBlock.startDate=localDay();(db.blocks||=[]).push(db.nextBlock);delete db.nextBlock;}
+   save();render();
+ }
+});

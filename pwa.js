@@ -3,7 +3,7 @@
   'use strict';
   const status=document.getElementById('offlineStatus');
   const updateButton=document.getElementById('installUpdate');
-  const VERSION='0.4.2';
+  const VERSION='0.5.0';
   let registration,ready=false,reloading=false,checkId=0;
   function show(message,kind='pending'){
     status.textContent=message;status.dataset.state=kind;

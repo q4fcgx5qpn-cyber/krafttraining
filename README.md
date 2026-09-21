@@ -1,4 +1,4 @@
-# Krafttraining v0.4.2
+# Krafttraining v0.5.0
 
 Mobile Trainings-App mit frei bearbeitbaren Trainingstagen, Supersätzen, Satzprotokoll, Historie und JSON-Backups.
 
@@ -13,3 +13,7 @@ Trainingsdaten werden ausschließlich lokal im Browser gespeichert. Es gibt kein
 Statische Dateien ohne Build-Schritt. In GitHub unter **Settings → Pages** die Quelle **Deploy from a branch**, den Branch **main** und **/(root)** auswählen. Der Upload umfasst App-Dateien und Ausgangspläne, keine persönlichen Trainingseinträge oder Backups.
 
 Offline-Caches sind auf dieses Projektverzeichnis beschränkt. Aktualisierte Versionen werden vorbereitet und erst nach Bestätigung über **Update laden** aktiviert, solange noch eine alte App-Instanz geöffnet ist.
+
+## Trainingsplanung
+
+Unter Planung einen Block mit drei Durchläufen anlegen. Offene Einheiten können vorgezogen und optional terminiert werden. Folgeblöcke übernehmen die aktuellen Pläne als eigene Kopie. Historie, Blöcke und Termine sind im JSON-Backup enthalten.
