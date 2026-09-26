@@ -92,7 +92,7 @@ function render(){
   $('#app').innerHTML=html;
   document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.6.0';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.6.1';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -119,7 +119,16 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportData(){const blob=new Blob([JSON.stringify(cloudPayload(db),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='krafttraining-v0.6.0-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exportiert.');}
+function exportBackup(value,name='krafttraining-v0.6.1'){
+  try{
+    const blob=new Blob([JSON.stringify(cloudPayload(value),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);
+    try{a.click();}finally{a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+    toast('Download gestartet. Bitte die JSON-Datei in Downloads prüfen.');
+  }catch{toast('Backup konnte nicht gestartet werden. Bitte erneut versuchen.');}
+}
+function exportData(){exportBackup(db);}
+
 async function importFile(file){
   if(!file)return;
   try{
@@ -245,4 +254,4 @@ document.addEventListener('click',e=>{
 });
 
 function cloudPayload(value){const out=K.clone(value);delete out._sync;return out;}
-window.KraftCloudBridge={read:()=>cloudPayload(db),meta:()=>db._sync,blocked:()=>!!db.activeSession||!!editor||$('#dialog').open||writeBlocked||!storageOkay,validate:value=>cloudPayload(K.normalize(value)),commit:(value,meta)=>{const old=db;db={...K.normalize(value),_sync:meta};if(!save()){db=old;throw Error('Lokal konnte nicht gespeichert werden. Bitte Backup exportieren.');}render();},refresh:()=>{if(route().page==='manage'&&!$('#dialog').open)render();},backup:exportData};
+window.KraftCloudBridge={read:()=>cloudPayload(db),meta:()=>db._sync,blocked:()=>!!db.activeSession||!!editor||$('#dialog').open||writeBlocked||!storageOkay,validate:value=>cloudPayload(K.normalize(value)),commit:(value,meta)=>{const old=db;db={...K.normalize(value),_sync:meta};if(!save()){db=old;throw Error('Lokal konnte nicht gespeichert werden. Bitte Backup exportieren.');}render();},refresh:()=>{if(route().page==='manage'&&!$('#dialog').open)render();},backup:exportData,exportBackup};

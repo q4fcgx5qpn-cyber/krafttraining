@@ -1,4 +1,4 @@
-# Krafttraining v0.6.0
+# Krafttraining v0.6.1
 
 Mobile Trainings-App mit flexiblen Trainingsblöcken, Supersätzen, Historie, JSON-Backups und optionalem privaten Geräteabgleich.
 
@@ -24,3 +24,6 @@ Trainingsdaten werden lokal und nach bewusster Aktivierung im angemeldeten Supab
 ## Technik
 
 Statisches HTML/CSS/JavaScript. Supabase-SDK lokal gebündelt, somit keine CDN-Abhängigkeit für den Offline-Start. Die Datenbankeinrichtung liegt im vollständigen Projekt unter supabase/schema.sql. Dienstschlüssel und Datenbankpasswörter gehören niemals ins Frontend.
+
+## Backup in Safari
+Backups werden ausschließlich durch Antippen eines Backup-Buttons heruntergeladen. Erstabgleich und Konfliktauflösung starten keine automatischen Downloads. Lokalen und Cloud-Stand bei Konflikten einzeln sichern. Die Meldung „Download gestartet“ bestätigt nur den Start; die JSON-Datei anschließend in Downloads prüfen.

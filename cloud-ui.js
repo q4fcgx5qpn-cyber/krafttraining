@@ -38,7 +38,7 @@
   if(bridge.blocked())return show('Bitte Training oder Planbearbeitung erst abschließen.');
   busy=true;
   try{const local=bridge.read(),remote=await transport.read(user.id);const cloud=remote?bridge.validate(remote.payload):null;issue={status:'setup',local,cloud,revision:remote?.revision||0,userId:user.id};
-   modal('Ersten Datenabgleich auswählen',`<p>Dieses Gerät: ${summary(local)}</p><p>Cloud: ${cloud?summary(cloud):'Noch keine Trainingsdaten'}</p><p class="muted">Am besten verbindest du zuerst das iPhone mit deinem aktuellen Trainingsstand. Auf dem Mac kannst du anschließend diesen Cloud-Stand übernehmen. Ein Backup des bisherigen lokalen Stands wird vor jeder Auswahl heruntergeladen.</p>${!cloud?'<button class="btn primary full" data-cloud="use-local">Diesen Stand erstmals in die Cloud sichern</button>':'<button class="btn primary full" data-cloud="use-cloud">Cloud-Stand auf dieses Gerät übernehmen</button><p class="footnote">Ersetzt die lokalen Pläne und Trainings nach deiner Bestätigung.</p>'}<button class="btn secondary full" data-cloud="close">Später entscheiden</button>`);
+   modal('Ersten Datenabgleich auswählen',`<p>Dieses Gerät: ${summary(local)}</p><p>Cloud: ${cloud?summary(cloud):'Noch keine Trainingsdaten'}</p><p class="muted">Am besten verbindest du zuerst das iPhone mit deinem aktuellen Trainingsstand. Auf dem Mac kannst du anschließend diesen Cloud-Stand übernehmen. Sichere den bisherigen Stand bei Bedarf zuerst über den Backup-Button und prüfe die JSON-Datei in Downloads. Der Abgleich selbst startet keinen Download.</p><button class="btn secondary full" data-cloud="backup-local">Backup dieses Geräts herunterladen</button>${!cloud?'<button class="btn primary full" data-cloud="use-local">Diesen Stand erstmals in die Cloud sichern</button>':'<button class="btn primary full" data-cloud="use-cloud">Cloud-Stand auf dieses Gerät übernehmen</button><p class="footnote">Ersetzt die lokalen Pläne und Trainings nach deiner Bestätigung.</p>'}<button class="btn secondary full" data-cloud="close">Später entscheiden</button>`);
   }catch{show('Cloud nicht erreichbar · lokale Daten unverändert');}finally{busy=false;}
  }
  function review(){
@@ -46,16 +46,14 @@
   if(issue?.status==='missing'){issue=null;return setup();}
   if(issue?.status!=='conflict')return;
   const labels={trainingDays:'Trainingstage',history:'Trainings',blocks:'Blöcke',exerciseLibrary:'Übungen',activeSession:'Laufende Einheit',nextBlock:'Nächster Block'};
-  modal('Änderungen vergleichen',`<p>Dieses Gerät: ${summary(issue.local)}</p><p>Cloud: ${summary(issue.cloud)}</p><p>Betroffen: ${safe(issue.paths.map(p=>labels[p.split('.')[0]]||p).join(', '))}</p><p class="muted">Änderungen an anderen Einträgen bleiben auf beiden Seiten erhalten. Bei den widersprüchlichen Einträgen wählst du einen Stand. Beide vollständigen Stände kannst du vorher sichern.</p><button class="btn secondary full" data-cloud="backup-both">Beide Datenstände exportieren</button><button class="btn primary full" data-cloud="resolve-local">Bei Konflikten dieses Gerät verwenden</button><button class="btn secondary full" data-cloud="resolve-cloud">Bei Konflikten Cloud verwenden</button>`);
+  modal('Änderungen vergleichen',`<p>Dieses Gerät: ${summary(issue.local)}</p><p>Cloud: ${summary(issue.cloud)}</p><p>Betroffen: ${safe(issue.paths.map(p=>labels[p.split('.')[0]]||p).join(', '))}</p><p class="muted">Änderungen an anderen Einträgen bleiben auf beiden Seiten erhalten. Bei den widersprüchlichen Einträgen wählst du einen Stand. Beide vollständigen Stände kannst du vorher sichern.</p><button class="btn secondary full" data-cloud="backup-local">Backup dieses Geräts herunterladen</button><button class="btn secondary full" data-cloud="backup-cloud">Backup des Cloud-Stands herunterladen</button><p class="footnote">Jedes Backup einzeln herunterladen und die JSON-Datei in Downloads prüfen.</p><button class="btn primary full" data-cloud="resolve-local">Bei Konflikten dieses Gerät verwenden</button><button class="btn secondary full" data-cloud="resolve-cloud">Bei Konflikten Cloud verwenden</button>`);
  }
- function download(value,name){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
  async function choose(action){
   if(busy||!issue||!user)return;const captured=issue,uid=user.id;
   if(!S.equal(bridge.read(),captured.local))return show('Lokale Daten haben sich geändert. Bitte Auswahl schließen und neu abgleichen.');
-  if(!confirm('Ausgewählten Datenstand übernehmen? Dein bisheriger lokaler Stand wird vorher als Backup heruntergeladen.'))return;
+  if(!confirm('Ausgewählten Datenstand übernehmen? Falls du den bisherigen Stand sichern möchtest, brich ab und lade zuerst das Backup herunter.'))return;
   document.getElementById('dialog').close();
   await lock(async()=>{busy=true;try{
-   bridge.backup();
    const current=await transport.read(uid);
    if((current?.revision||0)!==captured.revision||user?.id!==uid)throw Error('changed');
    if(bridge.blocked()||!S.equal(bridge.read(),captured.local))throw Error('changed');
@@ -63,7 +61,7 @@
    if(action==='use-cloud'){value=bridge.validate(current.payload);ack=current;}
    else{
     if(action==='use-local'){if(current)throw Error('cloud-not-empty');value=captured.local;}
-    else{download(captured.cloud,'krafttraining-cloud-vor-abgleich');const meta=bridge.meta();if(!meta||meta.userId!==uid)throw Error('account');const m=action==='resolve-local'?S.merge(meta.base,captured.local,captured.cloud):S.merge(meta.base,captured.cloud,captured.local);value=bridge.validate(m.data);}
+    else{const meta=bridge.meta();if(!meta||meta.userId!==uid)throw Error('account');const m=action==='resolve-local'?S.merge(meta.base,captured.local,captured.cloud):S.merge(meta.base,captured.cloud,captured.local);value=bridge.validate(m.data);}
     ack=await transport.write(uid,captured.revision,value);
     if(!ack||ack.revision!==captured.revision+1||!S.equal(ack.payload,value))throw Error('ack');
    }
@@ -80,7 +78,8 @@
   if(action==='close'){document.getElementById('dialog').close();if(issue?.status==='setup')issue=null;return;}
   if(action==='sync'){issue=null;return sync();}
   if(action==='setup')return setup();if(action==='review')return review();
-  if(action==='backup-both'&&issue?.cloud){download(issue.local,'krafttraining-geraet');download(issue.cloud,'krafttraining-cloud');return;}
+  if(action==='backup-local'&&issue?.local)return bridge.exportBackup(issue.local,'krafttraining-geraet');
+  if(action==='backup-cloud'&&issue?.cloud)return bridge.exportBackup(issue.cloud,'krafttraining-cloud');
   if(['use-local','use-cloud','resolve-local','resolve-cloud'].includes(action))return choose(action);
   if(action==='logout'&&!busy){if(!confirm('Abmelden? Lokale Trainingsdaten bleiben auf diesem Gerät. Nicht abgeglichene Änderungen bleiben lokal.'))return;await client.auth.signOut({scope:'local'});user=null;issue=null;show('Abgemeldet · Daten bleiben auf diesem Gerät');}
  });
