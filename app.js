@@ -17,9 +17,10 @@ function load(){
   return K.applyPlanUpdate(K.normalize(KraftSeed),KraftPlanAdditions);
 }
 let writeBlocked=!!loadError, storageOkay=!loadError;
+let lastStored=localStorage.getItem(KEY);
 function save(){
   if(writeBlocked){warning(loadError);return false;}
-  try{localStorage.setItem(KEY,JSON.stringify(db));warning('');return true;}
+  try{if(localStorage.getItem(KEY)!==lastStored){warning('Ein anderes Fenster hat Daten geändert. Bitte diese Seite neu laden; ungesicherte Eingaben vorher als Backup exportieren.');return false;}const raw=JSON.stringify(db);localStorage.setItem(KEY,raw);lastStored=raw;warning('');window.dispatchEvent(new Event('kraft-saved'));return true;}
   catch(e){warning('Speichern nicht möglich. Bitte jetzt ein JSON-Backup exportieren, bevor du die App schließt.');return false;}
 }
 function warning(message){storageOkay=!message;const n=$('#storageWarning');n.hidden=!message;n.textContent=message;const saved=$('.saved');if(saved)saved.textContent=message?'● Nicht dauerhaft gespeichert':'● Automatisch gespeichert';}
@@ -40,7 +41,7 @@ function home(){
   `<div class="section-title"><h2>Dein Trainingsplan</h2><a class="text-link" href="#edit/new">+ Trainingstag</a></div><div class="day-grid">`+
   db.trainingDays.map((d,i)=>`<a href="#day/${encodeURIComponent(d.id)}" class="card day-card"><div class="day-top"><span class="eyebrow">TRAINING ${String(i+1).padStart(2,'0')}</span><span class="arrow">↗</span></div><h2>${esc(d.name)}</h2><p class="muted">${d.exercises.length} Übungen <span class="dot">·</span> ${count(d.exercises)} Sätze</p><div class="day-foot"><div class="mini-tags">${K.groups(d.exercises).filter(g=>g.sup).map(g=>`<span class="pill">${g.letter} · Supersatz</span>`).join('')||'<span class="pill">Einzelübungen</span>'}</div><span class="text-link">Ansehen →</span></div></a>`).join('')+`</div>`+
   (!db.trainingDays.length?empty('Dein Plan beginnt hier','Lege deinen ersten Trainingstag an.',`<a href="#edit/new" class="btn primary">Trainingstag anlegen</a>`):'')+
-  `<div class="home-bottom"><div class="card stat"><span class="eyebrow">DRANGEBLIEBEN</span><strong>${db.history.length}<small>gespeicherte Trainings</small></strong></div><div class="card recent"><span class="eyebrow">ZULETZT TRAINIERT</span>${last?`<h3>${esc(last.dayName)}</h3><p class="muted">${date(last.finishedAt,true)} · ${done(last)} Sätze</p><a href="#history/${encodeURIComponent(last.id)}" class="text-link">Training ansehen →</a>`:'<h3>Dein nächster Schritt zählt.</h3><p class="muted">Nach deinem ersten Training findest du hier deine letzte Einheit.</p>'}</div></div><p class="footnote">Deine Daten bleiben in diesem Browser. Backups findest du unter Verwalten.</p>`;
+  `<div class="home-bottom"><div class="card stat"><span class="eyebrow">DRANGEBLIEBEN</span><strong>${db.history.length}<small>gespeicherte Trainings</small></strong></div><div class="card recent"><span class="eyebrow">ZULETZT TRAINIERT</span>${last?`<h3>${esc(last.dayName)}</h3><p class="muted">${date(last.finishedAt,true)} · ${done(last)} Sätze</p><a href="#history/${encodeURIComponent(last.id)}" class="text-link">Training ansehen →</a>`:'<h3>Dein nächster Schritt zählt.</h3><p class="muted">Nach deinem ersten Training findest du hier deine letzte Einheit.</p>'}</div></div><p class="footnote">Deine Daten werden lokal gespeichert. Optionaler Cloud-Abgleich und Backups unter Verwalten.</p>`;
 }
 function overview(d){
   return back('home','Trainingsplan')+head('DEIN PLAN FÜR HEUTE',d.name,`${d.exercises.length} Übungen · ${count(d.exercises)} Sätze`,button('editday','Bearbeiten','secondary',`data-id="${esc(d.id)}"`))+
@@ -68,8 +69,8 @@ function history(id){
   `<div class="history-grid">${h.exercises.map(x=>`<section class="card"><div class="section-title"><h2>${x.label?`<span class="pill">${x.label}</span> `:''}${esc(x.name)}</h2><span class="muted">${x.values.filter(v=>v.done).length} Sätze</span></div>${x.values.map((v,i)=>`<div class="history-set ${!v.done?'muted':''}"><span>Satz ${i+1}</span><strong>${esc(v.weight)||'–'} kg × ${esc(v.reps)||'–'} ${x.unit==='seconds'?'s':''}</strong><span>${v.done?'✓':'offen'}</span></div>`).join('')}${x.note?`<p class="muted">${esc(x.note)}</p>`:''}</section>`).join('')}</div>`;
   return head('DEIN FORTSCHRITT','Historie',`${db.history.length} gespeicherte Trainings`)+(db.history.length?`<div class="history-list">${[...db.history].sort((a,b)=>new Date(b.finishedAt)-new Date(a.finishedAt)).map(h=>`<section class="card history-row"><div class="date-tile">${esc(date(h.finishedAt))}</div><a href="#history/${encodeURIComponent(h.id)}" class="grow"><h2>${esc(h.dayName)}</h2><p class="muted">${h.exercises.length} Übungen · ${done(h)} Sätze</p></a><a href="#history/${encodeURIComponent(h.id)}" class="btn secondary">Ansehen</a>${button('delete-history','×','icon danger-ghost',`data-id="${esc(h.id)}" aria-label="${esc(h.dayName)} vom ${date(h.finishedAt)} löschen"`)}</section>`).join('')}</div>`:empty('Hier wächst dein Fortschritt','Deine abgeschlossenen Einheiten erscheinen hier.'));
 }
-function manage(){return head('DEIN TRAINING, DEINE REGELN','Verwalten','Passe deinen Plan an und sichere deine Fortschritte.')+
-  `<div class="manage-grid"><section><div class="section-title"><h2>Trainingstage</h2><a href="#edit/new" class="text-link">+ Neu</a></div><div class="card">${db.trainingDays.map(d=>`<div class="list-row"><div class="grow"><strong>${esc(d.name)}</strong><p class="muted">${d.exercises.length} Übungen · ${count(d.exercises)} Sätze</p></div><a href="#edit/${encodeURIComponent(d.id)}" class="btn secondary">Bearbeiten</a></div>`).join('')||'<p class="muted">Noch keine Trainingstage.</p>'}</div><div class="section-title"><h2>Backups</h2><span class="pill">JSON</span></div><section class="card"><h3>Dein Fortschritt bleibt bei dir.</h3><p class="muted">Exportiere Pläne, Historie und dein laufendes Training. Backups aus v0.2 und v0.3.1 werden übernommen.</p><div class="backup-buttons">${button('export','Backup exportieren','primary')}<label class="btn secondary file-label">Backup importieren<input id="import" type="file" accept=".json,application/json"></label></div><p class="footnote">Ein Import ersetzt den aktuellen Datenstand nach deiner Bestätigung. Keine Cloud-Synchronisierung.</p></section></section><section><div class="section-title"><h2>Übungsbibliothek</h2>${button('new-library','+ Übung','ghost')}</div><div class="card">${db.exerciseLibrary.map(x=>`<div class="list-row"><div class="grow"><strong>${esc(x.name)}</strong><p class="muted">${esc(x.setsRange||x.sets)} × ${esc(x.reps)}</p></div>${button('edit-library','Bearbeiten','secondary',`data-id="${esc(x.id)}"`)}</div>`).join('')||'<p class="muted">Noch keine Übungen.</p>'}</div></section></div>`;}
+function manage(){return (window.KraftCloudUI?window.KraftCloudUI.panel():'')+head('DEIN TRAINING, DEINE REGELN','Verwalten','Passe deinen Plan an und sichere deine Fortschritte.')+
+  `<div class="manage-grid"><section><div class="section-title"><h2>Trainingstage</h2><a href="#edit/new" class="text-link">+ Neu</a></div><div class="card">${db.trainingDays.map(d=>`<div class="list-row"><div class="grow"><strong>${esc(d.name)}</strong><p class="muted">${d.exercises.length} Übungen · ${count(d.exercises)} Sätze</p></div><a href="#edit/${encodeURIComponent(d.id)}" class="btn secondary">Bearbeiten</a></div>`).join('')||'<p class="muted">Noch keine Trainingstage.</p>'}</div><div class="section-title"><h2>Backups</h2><span class="pill">JSON</span></div><section class="card"><h3>Dein Fortschritt bleibt bei dir.</h3><p class="muted">Exportiere Pläne, Historie und dein laufendes Training. Backups aus v0.2 und v0.3.1 werden übernommen.</p><div class="backup-buttons">${button('export','Backup exportieren','primary')}<label class="btn secondary file-label">Backup importieren<input id="import" type="file" accept=".json,application/json"></label></div><p class="footnote">Ein Import ersetzt den lokalen Datenstand nach deiner Bestätigung. Danach den Cloud-Abgleich neu verbinden.</p></section></section><section><div class="section-title"><h2>Übungsbibliothek</h2>${button('new-library','+ Übung','ghost')}</div><div class="card">${db.exerciseLibrary.map(x=>`<div class="list-row"><div class="grow"><strong>${esc(x.name)}</strong><p class="muted">${esc(x.setsRange||x.sets)} × ${esc(x.reps)}</p></div>${button('edit-library','Bearbeiten','secondary',`data-id="${esc(x.id)}"`)}</div>`).join('')||'<p class="muted">Noch keine Übungen.</p>'}</div></section></div>`;}
 function editPage(id){
   if(!editor||editor.source!==id){const d=db.trainingDays.find(d=>d.id===id);editor={source:id,day:d?K.clone(d):{id:K.uid('day'),name:'',exercises:[]}};}
   const d=editor.day;
@@ -91,7 +92,7 @@ function render(){
   $('#app').innerHTML=html;
   document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.5.0';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.6.0';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -118,14 +119,14 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportData(){const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='krafttraining-v0.5.0-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exportiert.');}
+function exportData(){const blob=new Blob([JSON.stringify(cloudPayload(db),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='krafttraining-v0.6.0-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Backup exportiert.');}
 async function importFile(file){
   if(!file)return;
   try{
     const next=K.applyPlanUpdate(K.normalize(JSON.parse(await file.text())),KraftPlanAdditions);
     if(!confirm(`Backup importieren? ${next.trainingDays.length} Trainingstage und ${next.history.length} Trainings ersetzen den aktuellen Datenstand einschließlich einer laufenden Einheit. Vorher bei Bedarf ein Backup exportieren.`))return;
     // Persist the complete, validated replacement before changing the running application.
-    localStorage.setItem(KEY,JSON.stringify(next));db=next;writeBlocked=false;loadError='';warning('');editor=null;go('home');toast('✓ Backup importiert – Pläne, Historie und Vorwerte übernommen.');
+    if(localStorage.getItem(KEY)!==lastStored)throw Error('Ein anderes Fenster hat Daten geändert. Bitte neu laden.');delete next._sync;localStorage.setItem(KEY,JSON.stringify(next));lastStored=localStorage.getItem(KEY);db=next;writeBlocked=false;loadError='';warning('');editor=null;go('home');toast('✓ Backup importiert – Pläne, Historie und Vorwerte übernommen.');
   }catch(e){toast('Import fehlgeschlagen: '+e.message);}
 }
 window.addEventListener('hashchange',()=>{closeDialog();render();window.scrollTo(0,0);});
@@ -242,3 +243,6 @@ document.addEventListener('click',e=>{
    save();render();
  }
 });
+
+function cloudPayload(value){const out=K.clone(value);delete out._sync;return out;}
+window.KraftCloudBridge={read:()=>cloudPayload(db),meta:()=>db._sync,blocked:()=>!!db.activeSession||!!editor||$('#dialog').open||writeBlocked||!storageOkay,validate:value=>cloudPayload(K.normalize(value)),commit:(value,meta)=>{const old=db;db={...K.normalize(value),_sync:meta};if(!save()){db=old;throw Error('Lokal konnte nicht gespeichert werden. Bitte Backup exportieren.');}render();},refresh:()=>{if(route().page==='manage'&&!$('#dialog').open)render();},backup:exportData};
