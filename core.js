@@ -84,6 +84,13 @@
       if(p.blocks.filter(b=>!b.closedAt).length>1)throw Error('Mehrere aktive Trainingsblöcke.');
     }
     if(p.nextBlock){const draft=normalize({trainingDays:[],history:[],blocks:[p.nextBlock]});p.nextBlock=draft.blocks[0];if(p.nextBlock.closedAt)throw Error('Ungültige Blockvorbereitung.');}
+    if(p.plannedExtras!==undefined){
+      if(!Array.isArray(p.plannedExtras))throw Error('Ungültige Zusatzplanung.');
+      const ids=new Set();p.plannedExtras=p.plannedExtras.map(x=>{
+        if(!x||!x.id||ids.has(x.id)||!x.day||!Array.isArray(x.day.exercises)||x.plannedDate&&!validPlanDate(x.plannedDate))throw Error('Ungültige Zusatzeinheit.');
+        ids.add(x.id);return {...x,day:{...x.day,exercises:arrange(x.day.exercises.map(exercise))}};
+      });
+    }
     const find=id=>p.trainingDays.flatMap(d=>d.exercises).find(x=>x.id===id);
     function session(s, active=false) {
       const d=p.trainingDays.find(d=>d.id===s.dayId);
@@ -175,11 +182,29 @@
     for(const h of db.history) if(h.blockId===b.id && b.slots.some(s=>s.id===h.slotId)) completed.set(h.slotId,h);
     return {completed,next:b.slots.find(s=>!completed.has(s.id)),total:b.slots.length};
   }
+  function planningBlock(db,id){const b=(db.blocks||[]).find(b=>b.id===id)|| (db.nextBlock?.id===id?db.nextBlock:null);if(!b)throw Error('Block nicht gefunden.');return b;}
+  function validPlanDate(day){return /^\d{4}-\d{2}-\d{2}$/.test(day)&&!Number.isNaN(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day;}
+  function moveBlock(db,id,day){
+    const b=planningBlock(db,id);if(!validPlanDate(day))throw Error('Bitte ein gültiges Datum wählen.');
+    if(db.activeSession?.blockId===id)throw Error('Bitte zuerst die laufende Einheit abschließen.');
+    const offset=Date.parse(day)-Date.parse(b.startDate),done=blockProgress(db,b).completed;
+    for(const s of b.slots)if(s.plannedDate&&!done.has(s.id))s.plannedDate=new Date(Date.parse(s.plannedDate)+offset).toISOString().slice(0,10);
+    b.startDate=day;return b;
+  }
+  function deleteBlock(db,id){
+    planningBlock(db,id);if(db.activeSession?.blockId===id)throw Error('Bitte zuerst die laufende Einheit abschließen.');
+    if(db.nextBlock?.id===id)delete db.nextBlock;else db.blocks=db.blocks.filter(b=>b.id!==id);
+  }
+  function planSlot(db,id,slotId,day){
+    const b=planningBlock(db,id),slot=b.slots.find(s=>s.id===slotId);
+    if(!slot||b.closedAt||blockProgress(db,b).completed.has(slotId)||db.activeSession?.slotId===slotId)throw Error('Diese Einheit kann nicht verschoben werden.');
+    if(day&&!validPlanDate(day))throw Error('Bitte ein gültiges Datum wählen.');slot.plannedDate=day;
+  }
   function startSlot(db,b,slotId) {
     if(db.activeSession) throw Error('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');
     const slot=b.slots.find(s=>s.id===slotId);
     if(b.closedAt||!slot||blockProgress(db,b).completed.has(slotId)) throw Error('Diese Einheit ist nicht offen.');
     return {...start(db,b.days.find(d=>d.id===slot.dayId)),blockId:b.id,slotId:slot.id};
   }
-  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,blockProgress,startSlot};
+  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot};
 });

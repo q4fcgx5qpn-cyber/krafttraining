@@ -1,4 +1,4 @@
-# Krafttraining v0.6.1
+# Krafttraining v0.7.0
 
 Mobile Trainings-App mit flexiblen Trainingsblöcken, Supersätzen, Historie, JSON-Backups und optionalem privaten Geräteabgleich.
 
@@ -27,3 +27,8 @@ Statisches HTML/CSS/JavaScript. Supabase-SDK lokal gebündelt, somit keine CDN-A
 
 ## Backup in Safari
 Backups werden ausschließlich durch Antippen eines Backup-Buttons heruntergeladen. Erstabgleich und Konfliktauflösung starten keine automatischen Downloads. Lokalen und Cloud-Stand bei Konflikten einzeln sichern. Die Meldung „Download gestartet“ bestätigt nur den Start; die JSON-Datei anschließend in Downloads prüfen.
+
+## Flexible Planung ab v0.7.0
+Am Griff ⠿ offene Einheiten auf einen Kalendertag ziehen; auf Touchgeräten den Griff verwenden. Durch Antippen lässt sich ein beliebiges Datum wählen, auch außerhalb der sichtbaren Woche. „Noch ohne Termin“ entfernt die Terminzuordnung. Zusätzliche Trainingstage lassen sich unabhängig von Blöcken beliebig oft einfügen; dabei wird der aktuelle Übungsplan kopiert.
+
+Blöcke lassen sich verschieben oder löschen. Beim Verschieben wandern nur offene, bereits terminierte Einheiten um den gleichen Abstand. Abgeschlossene Trainings bleiben an ihrem tatsächlichen Datum in der Historie. Eine gerade laufende Einheit muss zuerst beendet werden. Vorbereitete Blöcke behalten bei Aktivierung ihr gewähltes Startdatum. Alle Geräte auf v0.7.0 aktualisieren, bevor die neue Planung bearbeitet wird.

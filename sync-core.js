@@ -4,7 +4,7 @@
  const copy=x=>x===undefined?undefined:JSON.parse(JSON.stringify(x));
  const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  function equal(a,b){if(a===b)return true;if(Array.isArray(a)&&Array.isArray(b))return a.length===b.length&&a.every((x,i)=>equal(x,b[i]));if(object(a)&&object(b)){const ak=Object.keys(a),bk=Object.keys(b);return ak.length===bk.length&&ak.every(k=>Object.hasOwn(b,k)&&equal(a[k],b[k]));}return false;}
- const collectionPaths=new Set(['trainingDays','exerciseLibrary','history','blocks']);
+ const collectionPaths=new Set(['trainingDays','exerciseLibrary','history','blocks','plannedExtras']);
  const forbidden=new Set(['__proto__','constructor','prototype']);
  function merge(base,local,remote){
    const conflicts=[];

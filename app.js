@@ -92,7 +92,7 @@ function render(){
   $('#app').innerHTML=html;
   document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.6.1';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.7.0';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -119,7 +119,7 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportBackup(value,name='krafttraining-v0.6.1'){
+function exportBackup(value,name='krafttraining-v0.7.0'){
   try{
     const blob=new Blob([JSON.stringify(cloudPayload(value),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download=name+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);
@@ -248,10 +248,10 @@ document.addEventListener('click',e=>{
    const b=activeBlock(),p=b&&K.blockProgress(db,b);
    if(!confirm(`${b?`${p.total-p.completed.size} Einheiten bleiben nicht absolviert. `:''}${a==='activate-block'?'Vorbereiteten Block jetzt starten?':'Block abschließen? Die bisherigen Pläne bleiben erhalten.'}`))return;
    if(b)b.closedAt=new Date().toISOString();
-   if(a==='activate-block'&&db.nextBlock){db.nextBlock.startDate=localDay();(db.blocks||=[]).push(db.nextBlock);delete db.nextBlock;}
+   if(a==='activate-block'&&db.nextBlock){(db.blocks||=[]).push(db.nextBlock);delete db.nextBlock;}
    save();render();
  }
 });
 
 function cloudPayload(value){const out=K.clone(value);delete out._sync;return out;}
-window.KraftCloudBridge={read:()=>cloudPayload(db),meta:()=>db._sync,blocked:()=>!!db.activeSession||!!editor||$('#dialog').open||writeBlocked||!storageOkay,validate:value=>cloudPayload(K.normalize(value)),commit:(value,meta)=>{const old=db;db={...K.normalize(value),_sync:meta};if(!save()){db=old;throw Error('Lokal konnte nicht gespeichert werden. Bitte Backup exportieren.');}render();},refresh:()=>{if(route().page==='manage'&&!$('#dialog').open)render();},backup:exportData,exportBackup};
+window.KraftCloudBridge={read:()=>cloudPayload(db),meta:()=>db._sync,blocked:()=>!!window.KraftPlanningBusy?.()||!!db.activeSession||!!editor||$('#dialog').open||writeBlocked||!storageOkay,validate:value=>cloudPayload(K.normalize(value)),commit:(value,meta)=>{const old=db;db={...K.normalize(value),_sync:meta};if(!save()){db=old;throw Error('Lokal konnte nicht gespeichert werden. Bitte Backup exportieren.');}render();},refresh:()=>{if(route().page==='manage'&&!$('#dialog').open)render();},backup:exportData,exportBackup};

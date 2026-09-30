@@ -45,7 +45,7 @@
   if(issue?.status==='setup')return setup();
   if(issue?.status==='missing'){issue=null;return setup();}
   if(issue?.status!=='conflict')return;
-  const labels={trainingDays:'Trainingstage',history:'Trainings',blocks:'Blöcke',exerciseLibrary:'Übungen',activeSession:'Laufende Einheit',nextBlock:'Nächster Block'};
+  const labels={trainingDays:'Trainingstage',history:'Trainings',blocks:'Blöcke',exerciseLibrary:'Übungen',activeSession:'Laufende Einheit',nextBlock:'Nächster Block',plannedExtras:'Zusätzliche Einheiten'};
   modal('Änderungen vergleichen',`<p>Dieses Gerät: ${summary(issue.local)}</p><p>Cloud: ${summary(issue.cloud)}</p><p>Betroffen: ${safe(issue.paths.map(p=>labels[p.split('.')[0]]||p).join(', '))}</p><p class="muted">Änderungen an anderen Einträgen bleiben auf beiden Seiten erhalten. Bei den widersprüchlichen Einträgen wählst du einen Stand. Beide vollständigen Stände kannst du vorher sichern.</p><button class="btn secondary full" data-cloud="backup-local">Backup dieses Geräts herunterladen</button><button class="btn secondary full" data-cloud="backup-cloud">Backup des Cloud-Stands herunterladen</button><p class="footnote">Jedes Backup einzeln herunterladen und die JSON-Datei in Downloads prüfen.</p><button class="btn primary full" data-cloud="resolve-local">Bei Konflikten dieses Gerät verwenden</button><button class="btn secondary full" data-cloud="resolve-cloud">Bei Konflikten Cloud verwenden</button>`);
  }
  async function choose(action){
