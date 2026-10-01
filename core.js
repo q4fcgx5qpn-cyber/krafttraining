@@ -78,10 +78,10 @@
         ids.add(b.id);
         const days=b.days.map(d=>({...d,exercises:arrange(d.exercises.map(exercise))}));
         const slots=new Set();
-        for(const slot of b.slots){if(!slot.id||slots.has(slot.id)||!days.some(d=>d.id===slot.dayId)||![1,2,3].includes(slot.round)||slot.plannedDate&&!/^\d{4}-\d{2}-\d{2}$/.test(slot.plannedDate))throw Error('Ungültige Blockeinheit.');slots.add(slot.id);}
+        for(const slot of b.slots){if(!slot.id||slots.has(slot.id)||!days.some(d=>d.id===slot.dayId)||(!Number.isInteger(slot.round)||slot.round<1||slot.round>52)||slot.plannedDate&&!/^\d{4}-\d{2}-\d{2}$/.test(slot.plannedDate))throw Error('Ungültige Blockeinheit.');slots.add(slot.id);}
         return {...b,days};
       });
-      if(p.blocks.filter(b=>!b.closedAt).length>1)throw Error('Mehrere aktive Trainingsblöcke.');
+      if(p.blocks.filter(b=>!b.closedAt&&!b.queued).length>1)throw Error('Mehrere aktive Trainingsblöcke.');
     }
     if(p.nextBlock){const draft=normalize({trainingDays:[],history:[],blocks:[p.nextBlock]});p.nextBlock=draft.blocks[0];if(p.nextBlock.closedAt)throw Error('Ungültige Blockvorbereitung.');}
     if(p.plannedExtras!==undefined){
@@ -203,7 +203,7 @@
   function startSlot(db,b,slotId) {
     if(db.activeSession) throw Error('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');
     const slot=b.slots.find(s=>s.id===slotId);
-    if(b.closedAt||!slot||blockProgress(db,b).completed.has(slotId)) throw Error('Diese Einheit ist nicht offen.');
+    if(b.closedAt||b.queued||!slot||blockProgress(db,b).completed.has(slotId)) throw Error('Diese Einheit ist nicht offen.');
     return {...start(db,b.days.find(d=>d.id===slot.dayId)),blockId:b.id,slotId:slot.id};
   }
   return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot};

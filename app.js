@@ -172,7 +172,7 @@ document.addEventListener('click',e=>{
   const s=db.activeSession,x=s?.exercises[s.index];
   if(a==='close-dialog')return closeDialog();
   if(a==='editday')return go('edit/'+encodeURIComponent(id));
-  if(a==='start'){if(!s){const active=(db.blocks||[]).find(b=>!b.closedAt);if(active){const slot=K.blockProgress(db,active).next;if(slot?.dayId===id){db.activeSession=K.startSlot(db,active,slot.id);save();return go('session');}if(!confirm('Als zusätzliches Training starten? Der Fortschritt im Block bleibt unverändert. Für eine vorgezogene Blockeinheit wähle sie unter Planung.'))return;}const d=db.trainingDays.find(d=>d.id===id);if(!d?.exercises.length)return;db.activeSession=K.start(db,d);save();}return go('session');}
+  if(a==='start'){if(!s){const active=(db.blocks||[]).find(b=>!b.closedAt&&!b.queued);if(active){const slot=K.blockProgress(db,active).next;if(slot?.dayId===id){db.activeSession=K.startSlot(db,active,slot.id);save();return go('session');}if(!confirm('Als zusätzliches Training starten? Der Fortschritt im Block bleibt unverändert. Für eine vorgezogene Blockeinheit wähle sie unter Planung.'))return;}const d=db.trainingDays.find(d=>d.id===id);if(!d?.exercises.length)return;db.activeSession=K.start(db,d);save();}return go('session');}
   if(a==='prev'||a==='next'||a==='jump'){if(!s)return;s.index=a==='jump'?index:s.index+(a==='prev'?-1:1);s.index=Math.max(0,Math.min(s.index,s.exercises.length-1));save();render();return;}
   if(a==='toggle'){
     const v=x.values[index];if(!v.done&&(!validateNumber(v.reps,x.unit!=='seconds')||(+v.reps.replace(',','.')<=0)||(v.weight!==''&&!validateNumber(v.weight))))return toast('Bitte gültige Werte eingeben: Gewicht ab 0 und Wiederholungen / Zeit größer als 0.');
@@ -215,7 +215,7 @@ $('#dialog').addEventListener('click',e=>{if(e.target===$('#dialog')){const r=e.
 warning(loadError);if(!writeBlocked)save();render();setInterval(updateTimer,1000);
 
 function localDay(value=new Date()){const d=new Date(value);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function activeBlock(){return (db.blocks||[]).find(b=>!b.closedAt);}
+function activeBlock(){return (db.blocks||[]).find(b=>!b.closedAt&&!b.queued);}
 function planningCard(){
  const b=activeBlock();if(!b)return `<section class="card planning-card"><div class="eyebrow">FLEXIBEL PLANEN</div><h2>Dein nächster Trainingsblock</h2><p class="muted">Drei Durchläufe, dein Tempo. Starte mit deinen aktuellen Trainingstagen.</p>${button('create-block','Block anlegen','primary')} <a href="#calendar" class="btn secondary">Kalender ansehen</a></section>`;
  const p=K.blockProgress(db,b),s=p.next,d=b.days.find(d=>d.id===s?.dayId);const monday=new Date();monday.setHours(0,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);const end=new Date(monday);end.setDate(end.getDate()+7);const weekly=db.history.filter(h=>new Date(h.finishedAt||h.date)>=monday&&new Date(h.finishedAt||h.date)<end).length;
