@@ -92,7 +92,7 @@ function render(){
   $('#app').innerHTML=html;
   document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.7.0';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.7.2';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -119,7 +119,7 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportBackup(value,name='krafttraining-v0.7.0'){
+function exportBackup(value,name='krafttraining-v0.7.2'){
   try{
     const blob=new Blob([JSON.stringify(cloudPayload(value),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download=name+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);

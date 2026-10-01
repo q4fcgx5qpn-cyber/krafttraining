@@ -1,4 +1,4 @@
-# Krafttraining v0.7.0
+# Krafttraining v0.7.2
 
 Mobile Trainings-App mit flexiblen Trainingsblöcken, Supersätzen, Historie, JSON-Backups und optionalem privaten Geräteabgleich.
 
@@ -28,7 +28,8 @@ Statisches HTML/CSS/JavaScript. Supabase-SDK lokal gebündelt, somit keine CDN-A
 ## Backup in Safari
 Backups werden ausschließlich durch Antippen eines Backup-Buttons heruntergeladen. Erstabgleich und Konfliktauflösung starten keine automatischen Downloads. Lokalen und Cloud-Stand bei Konflikten einzeln sichern. Die Meldung „Download gestartet“ bestätigt nur den Start; die JSON-Datei anschließend in Downloads prüfen.
 
-## Flexible Planung ab v0.7.0
-Am Griff ⠿ offene Einheiten auf einen Kalendertag ziehen; auf Touchgeräten den Griff verwenden. Durch Antippen lässt sich ein beliebiges Datum wählen, auch außerhalb der sichtbaren Woche. „Noch ohne Termin“ entfernt die Terminzuordnung. Zusätzliche Trainingstage lassen sich unabhängig von Blöcken beliebig oft einfügen; dabei wird der aktuelle Übungsplan kopiert.
+## Wochenplanung ab v0.7.2
 
-Blöcke lassen sich verschieben oder löschen. Beim Verschieben wandern nur offene, bereits terminierte Einheiten um den gleichen Abstand. Abgeschlossene Trainings bleiben an ihrem tatsächlichen Datum in der Historie. Eine gerade laufende Einheit muss zuerst beendet werden. Vorbereitete Blöcke behalten bei Aktivierung ihr gewähltes Startdatum. Alle Geräte auf v0.7.0 aktualisieren, bevor die neue Planung bearbeitet wird.
+Die zweite Seite des Zyklus-Popups zeigt Wochen mit einzelnen Tagesfeldern. Oben einen Trainingstag wählen und mit + am gewünschten Datum einsetzen. Offene Einheiten mit × entfernen, per Griff verschieben oder über „Verschieben“ ein Datum wählen. „Rückgängig“ setzt die letzten Änderungen an Einheiten zurück. Erst „Zyklus speichern“ übernimmt den Entwurf. Absolvierte Einheiten bleiben gesperrt.
+
+Der erste Aufruf erzeugt einen Vorschlag. Danach bleiben manuelle Änderungen auch beim Zurückgehen zu den Grunddaten erhalten. Geänderter Wochenumfang ist ein Ziel; zusätzliche Einheiten können mit + ergänzt werden. Einheiten außerhalb eines verkürzten Zeitraums bleiben zum Zuordnen sichtbar.
