@@ -115,13 +115,18 @@
     for(const x of p.trainingDays.flatMap(d=>d.exercises)) if(!library.some(y=>y.id===x.id||y.name===x.name)) library.push(clone(x));
     return {...p,version:4,exerciseLibrary:library};
   }
+  const exerciseName = x => text(x.name).normalize('NFKC').trim().toLocaleLowerCase('de-DE').replace(/\s+/g,' ');
+  // IDs survive plan edits, including replacing an exercise by renaming it.
+  function sameExercise(a,b) {return exerciseName(a)===exerciseName(b) && (a.unit||'reps')===(b.unit||'reps');}
   function previous(db, ex) {
     const hs=[...db.history].sort((a,b)=>new Date(b.finishedAt||b.date)-new Date(a.finishedAt||a.date));
     for(const h of hs) {
-      const found=h.exercises.find(x=>x.id===ex.id||x.name===ex.name);
+      const matches=h.exercises.filter(x=>sameExercise(x,ex)&&x.values.some(v=>v.done));
+      const found=matches.find(x=>x.id===ex.id)||matches[0];
       if(found && found.values.some(v=>v.done))return {date:h.finishedAt||h.date,values:found.values.filter(v=>v.done)};
     }
-    return ex.last ? {date:null,values:[{weight:text(ex.last.weight),reps:text(ex.last.reps),done:true}]} : null;
+    const conflictingId=[...(db.exerciseLibrary||[]),...hs.flatMap(h=>h.exercises)].some(x=>x.id===ex.id&&!sameExercise(x,ex));
+    return ex.last && !conflictingId ? {date:null,values:[{weight:text(ex.last.weight),reps:text(ex.last.reps),done:true}]} : null;
   }
   function item(db,x) {
     const prev=previous(db,x);
@@ -130,8 +135,8 @@
       reps:prev?.values[i]?.reps ?? prev?.values.at(-1)?.reps ?? '',done:false
     }))};
   }
-  function start(db,day) {
-    return {id:uid('session'),dayId:day.id,dayName:day.name,startedAt:new Date().toISOString(),index:0,exercises:day.exercises.map(x=>item(db,x))};
+  function start(db,day,now=new Date()) {
+    return {id:uid('session'),dayId:day.id,dayName:day.name,startedAt:new Date(now).toISOString(),index:0,exercises:day.exercises.map(x=>item(db,x))};
   }
   function nextPartner(session,index) {
     const current=session.exercises[index];
@@ -177,9 +182,21 @@
     if(!days.length || days.some(d=>!d.exercises.length)) throw Error('Bitte Trainingstage mit Übungen auswählen.');
     return {id:uid('block'),name:name||'Trainingsblock',startDate,days:clone(days),slots:Array.from({length:3},(_,round)=>days.map(d=>({id:uid('slot'),dayId:d.id,round:round+1,plannedDate:''}))).flat(),closedAt:null};
   }
+  function localDate(value=new Date()) {
+    if(typeof value==='string' && validPlanDate(value))return value;
+    const d=new Date(value);if(Number.isNaN(d.getTime()))return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function blockHasStarted(b,now=new Date()){return b.startDate<=localDate(now);}
+  function currentBlock(db,now=new Date()){return (db.blocks||[]).find(b=>!b.closedAt&&!b.queued&&blockHasStarted(b,now));}
+  // Preserve the boundary for old history when only the remaining plan is moved.
+  function preserveBlockStart(b){b.historyStartDate ||= b.startDate;}
   function blockProgress(db,b) {
     const completed=new Map();
-    for(const h of db.history) if(h.blockId===b.id && b.slots.some(s=>s.id===h.slotId)) completed.set(h.slotId,h);
+    for(const h of db.history) {
+      const day=localDate(h.startedAt||h.finishedAt||h.date||'');
+      if(h.blockId===b.id && day && day>=(h.blockStartDate||b.historyStartDate||b.startDate) && b.slots.some(s=>s.id===h.slotId)) completed.set(h.slotId,h);
+    }
     return {completed,next:b.slots.find(s=>!completed.has(s.id)),total:b.slots.length};
   }
   function planningBlock(db,id){const b=(db.blocks||[]).find(b=>b.id===id)|| (db.nextBlock?.id===id?db.nextBlock:null);if(!b)throw Error('Block nicht gefunden.');return b;}
@@ -189,7 +206,7 @@
     if(db.activeSession?.blockId===id)throw Error('Bitte zuerst die laufende Einheit abschließen.');
     const offset=Date.parse(day)-Date.parse(b.startDate),done=blockProgress(db,b).completed;
     for(const s of b.slots)if(s.plannedDate&&!done.has(s.id))s.plannedDate=new Date(Date.parse(s.plannedDate)+offset).toISOString().slice(0,10);
-    b.startDate=day;return b;
+    preserveBlockStart(b);b.startDate=day;return b;
   }
   function deleteBlock(db,id){
     planningBlock(db,id);if(db.activeSession?.blockId===id)throw Error('Bitte zuerst die laufende Einheit abschließen.');
@@ -200,11 +217,12 @@
     if(!slot||b.closedAt||blockProgress(db,b).completed.has(slotId)||db.activeSession?.slotId===slotId)throw Error('Diese Einheit kann nicht verschoben werden.');
     if(day&&!validPlanDate(day))throw Error('Bitte ein gültiges Datum wählen.');slot.plannedDate=day;
   }
-  function startSlot(db,b,slotId) {
+  function startSlot(db,b,slotId,now=new Date()) {
     if(db.activeSession) throw Error('Bitte zuerst die laufende Einheit abschließen oder verwerfen.');
     const slot=b.slots.find(s=>s.id===slotId);
     if(b.closedAt||b.queued||!slot||blockProgress(db,b).completed.has(slotId)) throw Error('Diese Einheit ist nicht offen.');
-    return {...start(db,b.days.find(d=>d.id===slot.dayId)),blockId:b.id,slotId:slot.id};
+    if(!blockHasStarted(b,now))throw Error('Dieser Zyklus beginnt erst am '+new Date(b.startDate+'T12:00:00').toLocaleDateString('de-DE')+'. Bis dahin kannst du außerhalb des Zyklus trainieren.');
+    return {...start(db,b.days.find(d=>d.id===slot.dayId),now),blockId:b.id,slotId:slot.id,blockStartDate:b.startDate};
   }
-  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot};
+  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,sameExercise,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,localDate,blockHasStarted,currentBlock,preserveBlockStart,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot};
 });

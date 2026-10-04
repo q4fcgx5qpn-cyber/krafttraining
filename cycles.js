@@ -4,7 +4,7 @@ const cycleDate=(day,offset)=>{const d=new Date(day+'T12:00:00');d.setDate(d.get
 const cycleWeeks=b=>b.durationWeeks||Math.max(3,...b.slots.map(s=>s.plannedDate?Math.floor((Date.parse(s.plannedDate)-Date.parse(b.startDate))/604800000)+1:3));
 function cycleCards(){
  const all=[...(db.blocks||[]),...(db.nextBlock?[db.nextBlock]:[])];
- return `<div class="section-title"><div><h2>Deine Trainingszyklen</h2><p class="muted">Ein Plan für die nächsten Wochen.</p></div></div>`+all.map(b=>{const p=K.blockProgress(db,b),weeks=cycleWeeks(b);return `<section class="card planning-card cycle-summary"><div class="section-title"><div><span class="eyebrow">${b.closedAt?'Abgeschlossen':b.queued||b===db.nextBlock?'Geplant':'Aktuell'}</span><h2>${esc(b.name)}</h2></div><span class="pill">${p.completed.size} / ${p.total} erledigt</span></div><p>${date(b.startDate+'T12:00:00',true)} – ${date(cycleDate(b.startDate,weeks*7-1)+'T12:00:00',true)} · ${weeks} Wochen · ${b.sessionsPerWeek||Math.ceil(p.total/weeks)} Einheiten / Woche</p><p class="muted">${b.days.map(d=>esc(d.name)).join(' · ')}</p><progress value="${p.completed.size}" max="${Math.max(1,p.total)}" aria-label="Fortschritt"></progress><div class="cycle-actions">${!b.closedAt?button('cycle-edit','Bearbeiten','secondary',`data-id="${esc(b.id)}"`):''}${b.queued||b===db.nextBlock?button('cycle-activate','Zyklus starten','primary',`data-id="${esc(b.id)}"`):!b.closedAt?button('close-block','Abschließen','ghost'):''}${button('plan-delete-block','Löschen','danger-ghost',`data-id="${esc(b.id)}"`)}</div></section>`;}).join('')+(!all.length?'<section class="card empty"><h3>Platz für deinen nächsten Trainingszyklus</h3><p class="muted">Wähle deine Trainingstage und verteile sie auf deine Wochen.</p></section>':'');
+ return `<div class="section-title"><div><h2>Deine Trainingszyklen</h2><p class="muted">Ein Plan für die nächsten Wochen.</p></div></div>`+all.map(b=>{const p=K.blockProgress(db,b),weeks=cycleWeeks(b);return `<section class="card planning-card cycle-summary"><div class="section-title"><div><span class="eyebrow">${b.closedAt?'Abgeschlossen':b.queued||b===db.nextBlock||!K.blockHasStarted(b)?'Geplant':'Aktuell'}</span><h2>${esc(b.name)}</h2></div><span class="pill">${p.completed.size} / ${p.total} erledigt</span></div><p>${date(b.startDate+'T12:00:00',true)} – ${date(cycleDate(b.startDate,weeks*7-1)+'T12:00:00',true)} · ${weeks} Wochen · ${b.sessionsPerWeek||Math.ceil(p.total/weeks)} Einheiten / Woche</p><p class="muted">${b.days.map(d=>esc(d.name)).join(' · ')}</p><progress value="${p.completed.size}" max="${Math.max(1,p.total)}" aria-label="Fortschritt"></progress><div class="cycle-actions">${!b.closedAt?button('cycle-edit','Bearbeiten','secondary',`data-id="${esc(b.id)}"`):''}${b.queued||b===db.nextBlock?button('cycle-activate',K.blockHasStarted(b)?'Zyklus starten':'Start ab '+date(b.startDate+'T12:00:00'),'primary',`data-id="${esc(b.id)}" ${!K.blockHasStarted(b)?'disabled':''}`):!b.closedAt?button('close-block','Abschließen','ghost'):''}${button('plan-delete-block','Löschen','danger-ghost',`data-id="${esc(b.id)}"`)}</div></section>`;}).join('')+(!all.length?'<section class="card empty"><h3>Platz für deinen nächsten Trainingszyklus</h3><p class="muted">Wähle deine Trainingstage und verteile sie auf deine Wochen.</p></section>':'');
 }
 function cycleOpen(id){
  const b=id?K.planningBlock(db,id):null;
@@ -19,7 +19,7 @@ function cycleBasics(){
  openDialog(b.editing?'Trainingszyklus bearbeiten':'Neuer Trainingszyklus',`<p class="eyebrow">1 · Grunddaten &nbsp; / &nbsp; 2 · Einheiten verteilen</p><form id="cycleBasics"><label>Name<input name="name" required maxlength="80" value="${esc(b.name)}"></label><div class="form-grid"><label>Startdatum<input name="start" type="date" required value="${b.startDate}"></label><label>Dauer in Wochen<input name="weeks" type="number" min="1" max="52" required value="${b.durationWeeks}"></label><label>Einheiten pro Woche<input name="count" type="number" min="1" max="14" required value="${b.sessionsPerWeek}"></label></div><h3>Trainingstage auswählen</h3><p class="muted">Die ausgewählten Tage wechseln sich im Vorschlag ab.</p><div class="cycle-choices">${choices.map(d=>`<label class="group-choice"><input type="checkbox" name="day" value="${esc(d.id)}" ${b.days.some(x=>x.id===d.id)?'checked':''} ${!d.exercises.length?'disabled':''}><span>${esc(d.name)}${!d.exercises.length?' (ohne Übungen)':''}</span></label>`).join('')}</div><p id="cycleError" role="alert"></p><button class="btn primary full">Weiter zur Wochenplanung →</button></form>`);
  document.querySelector('#dialog').classList.add('cycle-dialog');
 }
-function cycleLocked(s){return db.history.some(h=>h.blockId===cycleDraft.id&&h.slotId===s.id);}
+function cycleLocked(s){return K.blockProgress(db,cycleDraft).completed.has(s.id);}
 function cycleBoard(){
  const b=cycleDraft,dialog=document.querySelector('#dialog'),scroll=dialog.scrollTop,onBoard=!!dialog.querySelector('.cycle-board'),focused=document.activeElement?.dataset.cycleFocus;
  if(!b.days.some(d=>d.id===cycleSelectedDay))cycleSelectedDay=b.days[0]?.id;
@@ -55,7 +55,7 @@ document.addEventListener('submit',e=>{
   b.slots=Array.from({length:weeks*count},(_,index)=>({id:K.uid('slot'),dayId:days[index%days.length].id,round:Math.floor(index/count)+1,plannedDate:cycleDate(start,Math.floor(index/count)*7+Math.floor((index%count)*7/count))}));cycleInitialized=true;
  }else{
   b.slots=b.slots.filter(s=>ids.includes(s.dayId));
-  if(start!==b.startDate){const offset=Math.round((Date.parse(start)-Date.parse(b.startDate))/86400000);b.slots.forEach(s=>{if(s.plannedDate&&!cycleLocked(s))s.plannedDate=cycleDate(s.plannedDate,offset);});}
+  if(start!==b.startDate){K.preserveBlockStart(b);const offset=Math.round((Date.parse(start)-Date.parse(b.startDate))/86400000);b.slots.forEach(s=>{if(s.plannedDate&&!cycleLocked(s))s.plannedDate=cycleDate(s.plannedDate,offset);});}
  }
  cycleUndo=[];cycleEditingSlot=null;
  Object.assign(b,{name:String(f.get('name')).trim()||'Trainingszyklus',startDate:start,durationWeeks:weeks,sessionsPerWeek:count,days:K.clone(days)});cycleBoard();
@@ -84,6 +84,7 @@ document.addEventListener('click',e=>{
   if(!save()){db=previous;return;}closeDialog();cycleDraft=null;render();toast('Trainingszyklus gespeichert.');
  }
  if(a==='cycle-activate'){
+  if(!K.blockHasStarted(K.planningBlock(db,el.dataset.id)))return toast('Der Zyklus kann erst ab seinem Startdatum beginnen.');
   if(db.activeSession)return toast('Bitte zuerst das laufende Training abschließen.');
   if(activeBlock()&&!confirm('Aktuellen Zyklus abschließen und diesen Zyklus starten?'))return;
   const previous=K.clone(db),b=K.planningBlock(db,el.dataset.id),active=activeBlock();if(active)active.closedAt=new Date().toISOString();b.queued=false;if(db.nextBlock===b){db.blocks.push(b);delete db.nextBlock;}if(!save()){db=previous;return;}render();

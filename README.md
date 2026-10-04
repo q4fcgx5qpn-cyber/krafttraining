@@ -1,4 +1,4 @@
-# Krafttraining v0.7.2
+# Krafttraining v0.7.3
 
 Mobile Trainings-App mit flexiblen Trainingsblöcken, Supersätzen, Historie, JSON-Backups und optionalem privaten Geräteabgleich.
 
@@ -33,3 +33,7 @@ Backups werden ausschließlich durch Antippen eines Backup-Buttons heruntergelad
 Die zweite Seite des Zyklus-Popups zeigt Wochen mit einzelnen Tagesfeldern. Oben einen Trainingstag wählen und mit + am gewünschten Datum einsetzen. Offene Einheiten mit × entfernen, per Griff verschieben oder über „Verschieben“ ein Datum wählen. „Rückgängig“ setzt die letzten Änderungen an Einheiten zurück. Erst „Zyklus speichern“ übernimmt den Entwurf. Absolvierte Einheiten bleiben gesperrt.
 
 Der erste Aufruf erzeugt einen Vorschlag. Danach bleiben manuelle Änderungen auch beim Zurückgehen zu den Grunddaten erhalten. Geänderter Wochenumfang ist ein Ziel; zusätzliche Einheiten können mit + ergänzt werden. Einheiten außerhalb eines verkürzten Zeitraums bleiben zum Zuordnen sichtbar.
+
+## Korrekturen ab v0.7.3
+
+Vorwerte berücksichtigen Übungsname und Erfassungsart, auch bei wiederverwendeten Kennungen. Trainingszyklen zählen erst ab dem Startdatum. Details und Hinweise zu älteren Daten stehen in UPDATE-0.7.3.md.
