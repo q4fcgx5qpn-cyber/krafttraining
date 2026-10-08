@@ -200,6 +200,37 @@
     return {completed,next:b.slots.find(s=>!completed.has(s.id)),total:b.slots.length};
   }
   function planningBlock(db,id){const b=(db.blocks||[]).find(b=>b.id===id)|| (db.nextBlock?.id===id?db.nextBlock:null);if(!b)throw Error('Block nicht gefunden.');return b;}
+  function historyAssignment(db,h) {
+    const block=(db.blocks||[]).find(b=>b.id===h.blockId);
+    const slot=block?.slots.find(s=>s.id===h.slotId);
+    return slot && blockProgress(db,block).completed.get(slot.id)?.id===h.id ? {block,slot} : null;
+  }
+  function historyLinkError(db,h,b,slot) {
+    if(!h||!db.history.includes(h))return 'Training nicht gefunden.';
+    if(historyAssignment(db,h))return 'Dieses Training ist bereits zugeordnet. Löse zuerst seine bisherige Zuordnung.';
+    if(!b||!(db.blocks||[]).includes(b)||b.closedAt||b.queued||!slot||!b.slots.includes(slot))return 'Bitte eine offene Einheit in einem laufenden Zyklus wählen.';
+    if(blockProgress(db,b).completed.has(slot.id))return 'Diese Einheit ist bereits absolviert.';
+    if(db.activeSession?.blockId===b.id&&db.activeSession?.slotId===slot.id)return 'Diese Einheit läuft gerade. Bitte zuerst abschließen oder verwerfen.';
+    const day=b.days.find(d=>d.id===slot.dayId);
+    if(h.dayId ? h.dayId!==slot.dayId : h.dayName!==day?.name)return 'Training und Zykluseinheit müssen zum selben Trainingstag gehören.';
+    const trained=localDate(h.startedAt||h.finishedAt||h.date||'');
+    if(!trained||trained<b.startDate)return 'Das Training liegt vor dem Zyklusbeginn und kann diesem Zyklus nicht zugeordnet werden.';
+    if(!h.exercises.some(x=>x.values.some(v=>v.done)))return 'Dieses Training enthält keine abgeschlossenen Sätze.';
+    return '';
+  }
+  function historyTargets(db,h) {
+    return (db.blocks||[]).flatMap(block=>block.slots.filter(slot=>!historyLinkError(db,h,block,slot)).map(slot=>({block,slot})));
+  }
+  function linkHistory(db,historyId,blockId,slotId) {
+    const h=db.history.find(h=>h.id===historyId),b=(db.blocks||[]).find(b=>b.id===blockId),slot=b?.slots.find(s=>s.id===slotId);
+    const error=historyLinkError(db,h,b,slot);if(error)throw Error(error);
+    // Keep the original workout, timestamps and extra-planning reference intact.
+    Object.assign(h,{blockId:b.id,slotId:slot.id,blockStartDate:b.startDate});return h;
+  }
+  function unlinkHistory(db,historyId) {
+    const h=db.history.find(h=>h.id===historyId);if(!h)throw Error('Training nicht gefunden.');
+    delete h.blockId;delete h.slotId;delete h.blockStartDate;return h;
+  }
   function validPlanDate(day){return /^\d{4}-\d{2}-\d{2}$/.test(day)&&!Number.isNaN(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day;}
   function moveBlock(db,id,day){
     const b=planningBlock(db,id);if(!validPlanDate(day))throw Error('Bitte ein gültiges Datum wählen.');
@@ -224,5 +255,5 @@
     if(!blockHasStarted(b,now))throw Error('Dieser Zyklus beginnt erst am '+new Date(b.startDate+'T12:00:00').toLocaleDateString('de-DE')+'. Bis dahin kannst du außerhalb des Zyklus trainieren.');
     return {...start(db,b.days.find(d=>d.id===slot.dayId),now),blockId:b.id,slotId:slot.id,blockStartDate:b.startDate};
   }
-  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,sameExercise,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,localDate,blockHasStarted,currentBlock,preserveBlockStart,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot};
+  return {clone,uid,exercise,groups,arrange,normalize,migrateV2,sameExercise,previous,item,start,nextPartner,setSessionGroup,applyPlanUpdate,newBlock,localDate,blockHasStarted,currentBlock,preserveBlockStart,blockProgress,startSlot,planningBlock,moveBlock,deleteBlock,planSlot,historyAssignment,historyLinkError,historyTargets,linkHistory,unlinkHistory};
 });

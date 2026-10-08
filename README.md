@@ -1,4 +1,4 @@
-# Krafttraining v0.7.3
+# Krafttraining v0.7.4
 
 Mobile Trainings-App mit flexiblen Trainingsblöcken, Supersätzen, Historie, JSON-Backups und optionalem privaten Geräteabgleich.
 
@@ -37,3 +37,7 @@ Der erste Aufruf erzeugt einen Vorschlag. Danach bleiben manuelle Änderungen au
 ## Korrekturen ab v0.7.3
 
 Vorwerte berücksichtigen Übungsname und Erfassungsart, auch bei wiederverwendeten Kennungen. Trainingszyklen zählen erst ab dem Startdatum. Details und Hinweise zu älteren Daten stehen in UPDATE-0.7.3.md.
+
+## Zuordnung ab v0.7.4
+
+Bereits absolvierte Trainings lassen sich in Planung per Griff auf eine offene Zykluseinheit oder auf den Zyklus ziehen. Alternativ „Zuordnen“ verwenden. Die Verbindung lässt sich jederzeit lösen; alle erfassten Trainingsdaten bleiben erhalten. Details stehen in UPDATE-0.7.4.md.

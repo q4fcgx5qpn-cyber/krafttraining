@@ -42,6 +42,22 @@
      conflicts.push(path.join('.'));return copy(l);
    }
    const data=visit(base,local,remote,[]);
+   // Two devices may link different history records to the same slot. These
+   // independent record edits must not silently compete for one completion.
+   const claims=value=>{
+     const slots=new Map();
+     for(const h of value?.history||[]){
+       if(!h.blockId||!h.slotId)continue;
+       const key=JSON.stringify([h.blockId,h.slotId]);
+       if(!slots.has(key))slots.set(key,new Set());slots.get(key).add(h.id);
+     }
+     return slots;
+   };
+   const lc=claims(local),rc=claims(remote);
+   for(const [key,ids] of claims(data)){
+     const alreadyTogether=side=>[...ids].every(id=>side.get(key)?.has(id));
+     if(ids.size>1&&!alreadyTogether(lc)&&!alreadyTogether(rc))conflicts.push('history.assignment.'+key);
+   }
    // A conflict result is only a preview. Callers must not upload it.
    return {data,conflicts,ok:conflicts.length===0};
  }

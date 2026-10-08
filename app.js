@@ -63,10 +63,14 @@ function session(){
   <div id="restTimer" class="rest-timer" ${!s.restUntil?'hidden':''}></div><div class="session-nav">${button('prev','← Zurück','secondary',s.index===0?'disabled':'')}${button('next','Weiter →','secondary',s.index>=s.exercises.length-1?'disabled':'')}</div>`:empty('Platz für deine nächste Übung','Füge eine Übung für diese Einheit hinzu.'))+
   `<div class="session-actions">${button('add-run','+ Übung hinzufügen','secondary')}${button('finish','Training abschließen','primary')}</div><details class="session-more"><summary>Weitere Optionen</summary><p class="muted">Du kannst jederzeit zur Startseite wechseln und später fortsetzen.</p>${button('discard','Einheit verwerfen','danger')}</details></div></div>`;
 }
+function historyLinkCard(h){
+ const linked=K.historyAssignment(db,h);
+ return `<section class="card history-link-card"><div><span class="eyebrow">TRAININGSZYKLUS</span><p>${linked?`✓ ${esc(linked.block.name)} · ${linked.slot.plannedDate?date(linked.slot.plannedDate+'T12:00:00',true):'Einheit '+linked.slot.round}`:'Dieses Training ist noch keinem Zyklus zugeordnet.'}</p></div>${button('history-link',linked?'Zuordnung ansehen':'Zyklus zuordnen','secondary',`data-id="${esc(h.id)}"`)}</section>`;
+}
 function history(id){
   const h=id?db.history.find(h=>h.id===id):null;
   if(h)return back('history','Historie')+head('DEIN TRAINING',h.dayName,`${date(h.finishedAt,true)} · ${done(h)} bestätigte Sätze`,button('delete-history','Training löschen','danger',`data-id="${esc(h.id)}"`))+
-  `<div class="history-grid">${h.exercises.map(x=>`<section class="card"><div class="section-title"><h2>${x.label?`<span class="pill">${x.label}</span> `:''}${esc(x.name)}</h2><span class="muted">${x.values.filter(v=>v.done).length} Sätze</span></div>${x.values.map((v,i)=>`<div class="history-set ${!v.done?'muted':''}"><span>Satz ${i+1}</span><strong>${esc(v.weight)||'–'} kg × ${esc(v.reps)||'–'} ${x.unit==='seconds'?'s':''}</strong><span>${v.done?'✓':'offen'}</span></div>`).join('')}${x.note?`<p class="muted">${esc(x.note)}</p>`:''}</section>`).join('')}</div>`;
+  historyLinkCard(h)+`<div class="history-grid">${h.exercises.map(x=>`<section class="card"><div class="section-title"><h2>${x.label?`<span class="pill">${x.label}</span> `:''}${esc(x.name)}</h2><span class="muted">${x.values.filter(v=>v.done).length} Sätze</span></div>${x.values.map((v,i)=>`<div class="history-set ${!v.done?'muted':''}"><span>Satz ${i+1}</span><strong>${esc(v.weight)||'–'} kg × ${esc(v.reps)||'–'} ${x.unit==='seconds'?'s':''}</strong><span>${v.done?'✓':'offen'}</span></div>`).join('')}${x.note?`<p class="muted">${esc(x.note)}</p>`:''}</section>`).join('')}</div>`;
   return head('DEIN FORTSCHRITT','Historie',`${db.history.length} gespeicherte Trainings`)+(db.history.length?`<div class="history-list">${[...db.history].sort((a,b)=>new Date(b.finishedAt)-new Date(a.finishedAt)).map(h=>`<section class="card history-row"><div class="date-tile">${esc(date(h.finishedAt))}</div><a href="#history/${encodeURIComponent(h.id)}" class="grow"><h2>${esc(h.dayName)}</h2><p class="muted">${h.exercises.length} Übungen · ${done(h)} Sätze</p></a><a href="#history/${encodeURIComponent(h.id)}" class="btn secondary">Ansehen</a>${button('delete-history','×','icon danger-ghost',`data-id="${esc(h.id)}" aria-label="${esc(h.dayName)} vom ${date(h.finishedAt)} löschen"`)}</section>`).join('')}</div>`:empty('Hier wächst dein Fortschritt','Deine abgeschlossenen Einheiten erscheinen hier.'));
 }
 function manage(){return (window.KraftCloudUI?window.KraftCloudUI.panel():'')+head('DEIN TRAINING, DEINE REGELN','Verwalten','Passe deinen Plan an und sichere deine Fortschritte.')+
@@ -92,7 +96,7 @@ function render(){
   $('#app').innerHTML=html;
   document.querySelectorAll('[data-nav]').forEach(a=>{const active=a.dataset.nav===(['manage','edit'].includes(r.page)?'manage':r.page==='history'?'history':r.page==='calendar'?'calendar':'home');a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   document.querySelectorAll('#dayForm button:not([type])').forEach(b=>b.type='button');
-  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.7.3';updateTimer();
+  document.title=(r.page==='session'?'Training läuft':'Krafttraining')+' · v0.7.4';updateTimer();
 }
 function openDialog(title,body){focusBeforeDialog=document.activeElement;$('#dialog').innerHTML=`<div class="dialog-head"><h2 id="dialogTitle">${title}</h2>${button('close-dialog','×','icon','aria-label="Schließen"')}</div>${body}`;$('#dialog').showModal();}
 function closeDialog(){$('#dialog').close();focusBeforeDialog?.focus();}
@@ -119,7 +123,7 @@ function updateTimer(){
   const remaining=Math.max(0,Math.ceil((s.restUntil-Date.now())/1000));box.hidden=false;
   box.innerHTML=`<div><span class="eyebrow">${remaining?'PAUSE':'BEREIT FÜR DIE NÄCHSTE RUNDE'}</span><strong>${remaining?Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'Weiter geht’s'}</strong></div>${button('skip-rest',remaining?'Überspringen':'Okay','ghost')}`;
 }
-function exportBackup(value,name='krafttraining-v0.7.3'){
+function exportBackup(value,name='krafttraining-v0.7.4'){
   try{
     const blob=new Blob([JSON.stringify(cloudPayload(value),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download=name+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);
